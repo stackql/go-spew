@@ -148,7 +148,7 @@ func (d *dumpState) dumpPtr(v reflect.Value) {
 	}
 
 	// Display dereferenced value.
-	if !d.cs.AsGolangSource {
+	if !d.cs.AsGolangSource && v.Kind() != reflect.String {
 		d.w.Write(openParenBytes)
 	}
 	switch {
@@ -168,7 +168,7 @@ func (d *dumpState) dumpPtr(v reflect.Value) {
 		d.ignoreNextType = true
 		d.dump(ve)
 	}
-	if !d.cs.AsGolangSource {
+	if !d.cs.AsGolangSource && v.Kind() != reflect.String {
 		d.w.Write(closeParenBytes)
 	}
 }
