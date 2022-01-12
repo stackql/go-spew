@@ -126,7 +126,7 @@ func (d *dumpState) dumpPtr(v reflect.Value) {
 	if d.cs.AsGolangSource {
 		d.w.Write(ampersandBytes)
 		// d.w.Write(bytes.Repeat(, indirects))
-		d.w.Write([]byte(ve.Type().String()))
+		d.w.Write([]byte(strings.TrimLeft("*", ve.Type().String())))
 		// d.w.Write(closeParenBytes)
 	} else {
 		d.w.Write(openParenBytes)
@@ -231,7 +231,7 @@ func (d *dumpState) dumpSlice(v reflect.Value) {
 	}
 
 	// Hexdump the entire slice as needed.
-	if doHexDump {
+	if doHexDump && !d.cs.AsGolangSource {
 		indent := strings.Repeat(d.cs.Indent, d.depth)
 		str := indent + hex.Dump(buf)
 		str = strings.Replace(str, "\n", "\n"+indent, -1)
