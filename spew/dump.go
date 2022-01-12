@@ -261,6 +261,31 @@ func (d *dumpState) dumpSlice(v reflect.Value) {
 	}
 }
 
+func isElementary(v reflect.Value) bool {
+	switch v.Kind() {
+	case reflect.Bool,
+		reflect.Int,
+		reflect.Int8,
+		reflect.Int16,
+		reflect.Int32,
+		reflect.Int64,
+		reflect.Uint,
+		reflect.Uint8,
+		reflect.Uint16,
+		reflect.Uint32,
+		reflect.Uint64,
+		reflect.Uintptr,
+		reflect.Float32,
+		reflect.Float64,
+		reflect.Complex64,
+		reflect.Complex128,
+		reflect.String:
+		return true
+	}
+	return false
+
+}
+
 // dump is the main workhorse for dumping a value.  It uses the passed reflect
 // value to figure out what kind of object we are dealing with and formats it
 // appropriately.  It is a recursive function, however circular data structures
@@ -282,11 +307,21 @@ func (d *dumpState) dump(v reflect.Value) {
 
 	// Print type information unless already handled elsewhere.
 	if !d.ignoreNextType {
-		d.indent()
-		d.w.Write(openParenBytes)
-		d.w.Write([]byte(v.Type().String()))
-		d.w.Write(closeParenBytes)
-		d.w.Write(spaceBytes)
+		if !d.cs.AsGolangSource {
+			d.indent()
+			d.w.Write(openParenBytes)
+			d.w.Write([]byte(v.Type().String()))
+			d.w.Write(closeParenBytes)
+			d.w.Write(spaceBytes)
+		} else {
+			d.indent()
+			// d.w.Write(openParenBytes)
+			if !isElementary(v) {
+				d.w.Write([]byte(v.Type().String()))
+			}
+			// d.w.Write(closeParenBytes)
+			d.w.Write(spaceBytes)
+		}
 	}
 	d.ignoreNextType = false
 
