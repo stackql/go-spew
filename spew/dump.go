@@ -123,10 +123,10 @@ func (d *dumpState) dumpPtr(v reflect.Value) {
 	}
 
 	// Display type information.
-	d.w.Write(ampersandBytes)
-	// d.w.Write(bytes.Repeat(, indirects))
-	// d.w.Write([]byte(ve.Type().String()))
-	// d.w.Write(closeParenBytes)
+	d.w.Write(openParenBytes)
+	d.w.Write(bytes.Repeat(asteriskBytes, indirects))
+	d.w.Write([]byte(ve.Type().String()))
+	d.w.Write(closeParenBytes)
 
 	// Display pointer information.
 	if !d.cs.DisablePointerAddresses && len(pointerChain) > 0 {
@@ -144,7 +144,7 @@ func (d *dumpState) dumpPtr(v reflect.Value) {
 	d.w.Write(openParenBytes)
 	switch {
 	case nilFound:
-		d.w.Write(nilOnlyBytes)
+		d.w.Write(nilAngleBytes)
 
 	case cycleFound:
 		d.w.Write(circularBytes)
@@ -282,7 +282,7 @@ func (d *dumpState) dump(v reflect.Value) {
 	case reflect.Map, reflect.String:
 		valueLen = v.Len()
 	}
-	if !d.cs.AsGolangSource && (valueLen != 0 || !d.cs.DisableCapacities && valueCap != 0) {
+	if valueLen != 0 || !d.cs.DisableCapacities && valueCap != 0 {
 		d.w.Write(openParenBytes)
 		if valueLen != 0 {
 			d.w.Write(lenEqualsBytes)
@@ -337,7 +337,7 @@ func (d *dumpState) dump(v reflect.Value) {
 
 	case reflect.Slice:
 		if v.IsNil() {
-			d.w.Write(nilOnlyBytes)
+			d.w.Write(nilAngleBytes)
 			break
 		}
 		fallthrough
@@ -362,7 +362,7 @@ func (d *dumpState) dump(v reflect.Value) {
 		// The only time we should get here is for nil interfaces due to
 		// unpackValue calls.
 		if v.IsNil() {
-			d.w.Write(nilOnlyBytes)
+			d.w.Write(nilAngleBytes)
 		}
 
 	case reflect.Ptr:
@@ -372,7 +372,7 @@ func (d *dumpState) dump(v reflect.Value) {
 	case reflect.Map:
 		// nil maps should be indicated as different than empty maps
 		if v.IsNil() {
-			d.w.Write(nilOnlyBytes)
+			d.w.Write(nilAngleBytes)
 			break
 		}
 
@@ -455,7 +455,7 @@ func fdump(cs *ConfigState, w io.Writer, a ...interface{}) {
 		if arg == nil {
 			w.Write(interfaceBytes)
 			w.Write(spaceBytes)
-			w.Write(nilOnlyBytes)
+			w.Write(nilAngleBytes)
 			w.Write(newlineBytes)
 			continue
 		}

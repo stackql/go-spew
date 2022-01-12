@@ -106,7 +106,7 @@ func (f *formatState) formatPtr(v reflect.Value) {
 	// Display nil if top level pointer is nil.
 	showTypes := f.fs.Flag('#')
 	if v.IsNil() && (!showTypes || f.ignoreNextType) {
-		f.fs.Write(nilOnlyBytes)
+		f.fs.Write(nilAngleBytes)
 		return
 	}
 
@@ -183,7 +183,7 @@ func (f *formatState) formatPtr(v reflect.Value) {
 	// Display dereferenced value.
 	switch {
 	case nilFound:
-		f.fs.Write(nilOnlyBytes)
+		f.fs.Write(nilAngleBytes)
 
 	case cycleFound:
 		f.fs.Write(circularShortBytes)
@@ -258,7 +258,7 @@ func (f *formatState) format(v reflect.Value) {
 
 	case reflect.Slice:
 		if v.IsNil() {
-			f.fs.Write(nilOnlyBytes)
+			f.fs.Write(nilAngleBytes)
 			break
 		}
 		fallthrough
@@ -288,7 +288,7 @@ func (f *formatState) format(v reflect.Value) {
 		// The only time we should get here is for nil interfaces due to
 		// unpackValue calls.
 		if v.IsNil() {
-			f.fs.Write(nilOnlyBytes)
+			f.fs.Write(nilAngleBytes)
 		}
 
 	case reflect.Ptr:
@@ -298,7 +298,7 @@ func (f *formatState) format(v reflect.Value) {
 	case reflect.Map:
 		// nil maps should be indicated as different than empty maps
 		if v.IsNil() {
-			f.fs.Write(nilOnlyBytes)
+			f.fs.Write(nilAngleBytes)
 			break
 		}
 
@@ -382,7 +382,7 @@ func (f *formatState) Format(fs fmt.State, verb rune) {
 		if fs.Flag('#') {
 			fs.Write(interfaceBytes)
 		}
-		fs.Write(nilOnlyBytes)
+		fs.Write(nilAngleBytes)
 		return
 	}
 
