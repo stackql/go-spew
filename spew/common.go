@@ -339,3 +339,7 @@ func sortValues(values []reflect.Value, cs *ConfigState) {
 	}
 	sort.Sort(newValuesSorter(values, cs))
 }
+
+func SortValues(values []reflect.Value, cs *ConfigState) {
+	sortValues(values, cs)
+}

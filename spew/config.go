@@ -41,6 +41,8 @@ type ConfigState struct {
 	// set this to a tab with "\t" or perhaps two spaces with "  ".
 	Indent string
 
+	AsGolangSource bool
+
 	// MaxDepth controls the maximum number of levels to descend into nested
 	// data structures.  The default, 0, means there is no limit.
 	//
