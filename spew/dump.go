@@ -253,7 +253,7 @@ func (d *dumpState) dumpSlice(v reflect.Value) {
 	// Recursively call dump for each item.
 	for i := 0; i < numEntries; i++ {
 		d.dump(d.unpackValue(v.Index(i)))
-		if i < (numEntries - 1) {
+		if i < (numEntries-1) || d.cs.AsGolangSource {
 			d.w.Write(commaNewlineBytes)
 		} else {
 			d.w.Write(newlineBytes)
