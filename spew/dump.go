@@ -125,10 +125,14 @@ func (d *dumpState) dumpPtr(v reflect.Value) {
 	// Display type information.
 	if d.cs.AsGolangSource {
 		if !nilFound {
-			d.w.Write(ampersandBytes)
-			// d.w.Write(bytes.Repeat(, indirects))
-			d.w.Write([]byte(strings.TrimLeft(ve.Type().String(), "*")))
-			// d.w.Write(closeParenBytes)
+			if isInlineInitializable(ve) {
+				d.w.Write(ampersandBytes)
+				d.w.Write([]byte(strings.TrimLeft(ve.Type().String(), "*")))
+			} else {
+				d.w.Write(ampersandBytes)
+				d.w.Write([]byte("[]" + strings.TrimLeft(ve.Type().String(), "*")))
+				d.w.Write(openBraceBytes)
+			}
 		}
 	} else {
 		d.w.Write(openParenBytes)
@@ -150,7 +154,7 @@ func (d *dumpState) dumpPtr(v reflect.Value) {
 	}
 
 	// Display dereferenced value.
-	if !d.cs.AsGolangSource || ve.Kind() == reflect.String {
+	if !d.cs.AsGolangSource {
 		d.w.Write(openParenBytes)
 	}
 	switch {
@@ -164,8 +168,13 @@ func (d *dumpState) dumpPtr(v reflect.Value) {
 		d.ignoreNextType = true
 		d.dump(ve)
 	}
-	if !d.cs.AsGolangSource || ve.Kind() == reflect.String {
+	if !d.cs.AsGolangSource {
 		d.w.Write(closeParenBytes)
+		return
+	}
+	if !isInlineInitializable(ve) {
+		d.w.Write(closeBraceBytes)
+		d.w.Write([]byte("[0]"))
 	}
 }
 
@@ -293,6 +302,15 @@ func isNil(v reflect.Value) bool {
 		return v.IsNil()
 	}
 	return false
+}
+
+func isInlineInitializable(v reflect.Value) bool {
+	switch v.Kind() {
+	case reflect.Bool,
+		reflect.String:
+		return false
+	}
+	return true
 }
 
 // dump is the main workhorse for dumping a value.  It uses the passed reflect
