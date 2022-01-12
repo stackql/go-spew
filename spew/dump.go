@@ -475,7 +475,7 @@ func (d *dumpState) dump(v reflect.Value) {
 			numFields := v.NumField()
 			for i := 0; i < numFields; i++ {
 				vtf := vt.Field(i)
-				if strings.ToLower(vtf.Name) == vtf.Name && d.cs.AsGolangSource {
+				if len(vtf.Name) > 0 && strings.ToLower(string(vtf.Name[0])) == string(vtf.Name[0]) && d.cs.AsGolangSource {
 					continue
 				}
 				d.indent()
