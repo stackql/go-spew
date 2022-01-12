@@ -148,10 +148,18 @@ func (d *dumpState) dumpPtr(v reflect.Value) {
 	}
 
 	// Display dereferenced value.
-	d.w.Write(openParenBytes)
+	if !d.cs.AsGolangSource {
+		d.w.Write(openParenBytes)
+	}
 	switch {
 	case nilFound:
+		if d.cs.AsGolangSource {
+			d.w.Write(openParenBytes)
+		}
 		d.w.Write(d.cs.GetNilBytes())
+		if d.cs.AsGolangSource {
+			d.w.Write(closeParenBytes)
+		}
 
 	case cycleFound:
 		d.w.Write(circularBytes)
@@ -160,7 +168,9 @@ func (d *dumpState) dumpPtr(v reflect.Value) {
 		d.ignoreNextType = true
 		d.dump(ve)
 	}
-	d.w.Write(closeParenBytes)
+	if !d.cs.AsGolangSource {
+		d.w.Write(closeParenBytes)
+	}
 }
 
 // dumpSlice handles formatting of arrays and slices.  Byte (uint8 under
