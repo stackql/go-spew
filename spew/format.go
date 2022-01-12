@@ -106,7 +106,7 @@ func (f *formatState) formatPtr(v reflect.Value) {
 	// Display nil if top level pointer is nil.
 	showTypes := f.fs.Flag('#')
 	if v.IsNil() && (!showTypes || f.ignoreNextType) {
-		f.fs.Write(nilAngleBytes)
+		f.fs.Write(f.cs.GetNilBytes())
 		return
 	}
 
@@ -175,7 +175,7 @@ func (f *formatState) formatPtr(v reflect.Value) {
 			if i > 0 {
 				f.fs.Write(pointerChainBytes)
 			}
-			printHexPtr(f.fs, addr)
+			f.cs.PrintHexPtr(f.fs, addr)
 		}
 		f.fs.Write(closeParenBytes)
 	}
@@ -183,7 +183,7 @@ func (f *formatState) formatPtr(v reflect.Value) {
 	// Display dereferenced value.
 	switch {
 	case nilFound:
-		f.fs.Write(nilAngleBytes)
+		f.fs.Write(f.cs.GetNilBytes())
 
 	case cycleFound:
 		f.fs.Write(circularShortBytes)
@@ -258,7 +258,7 @@ func (f *formatState) format(v reflect.Value) {
 
 	case reflect.Slice:
 		if v.IsNil() {
-			f.fs.Write(nilAngleBytes)
+			f.fs.Write(f.cs.GetNilBytes())
 			break
 		}
 		fallthrough
@@ -288,7 +288,7 @@ func (f *formatState) format(v reflect.Value) {
 		// The only time we should get here is for nil interfaces due to
 		// unpackValue calls.
 		if v.IsNil() {
-			f.fs.Write(nilAngleBytes)
+			f.fs.Write(f.cs.GetNilBytes())
 		}
 
 	case reflect.Ptr:
@@ -298,7 +298,7 @@ func (f *formatState) format(v reflect.Value) {
 	case reflect.Map:
 		// nil maps should be indicated as different than empty maps
 		if v.IsNil() {
-			f.fs.Write(nilAngleBytes)
+			f.fs.Write(f.cs.GetNilBytes())
 			break
 		}
 
@@ -349,10 +349,10 @@ func (f *formatState) format(v reflect.Value) {
 		f.fs.Write(closeBraceBytes)
 
 	case reflect.Uintptr:
-		printHexPtr(f.fs, uintptr(v.Uint()))
+		f.cs.PrintHexPtr(f.fs, uintptr(v.Uint()))
 
 	case reflect.UnsafePointer, reflect.Chan, reflect.Func:
-		printHexPtr(f.fs, v.Pointer())
+		f.cs.PrintHexPtr(f.fs, v.Pointer())
 
 	// There were not any other types at the time this code was written, but
 	// fall back to letting the default fmt package handle it if any get added.
@@ -382,7 +382,7 @@ func (f *formatState) Format(fs fmt.State, verb rune) {
 		if fs.Flag('#') {
 			fs.Write(interfaceBytes)
 		}
-		fs.Write(nilAngleBytes)
+		fs.Write(f.cs.GetNilBytes())
 		return
 	}
 

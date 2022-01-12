@@ -123,10 +123,17 @@ func (d *dumpState) dumpPtr(v reflect.Value) {
 	}
 
 	// Display type information.
-	d.w.Write(openParenBytes)
-	d.w.Write(bytes.Repeat(asteriskBytes, indirects))
-	d.w.Write([]byte(ve.Type().String()))
-	d.w.Write(closeParenBytes)
+	if d.cs.AsGolangSource {
+		d.w.Write(ampersandBytes)
+		// d.w.Write(bytes.Repeat(, indirects))
+		d.w.Write([]byte(ve.Type().String()))
+		// d.w.Write(closeParenBytes)
+	} else {
+		d.w.Write(openParenBytes)
+		d.w.Write(bytes.Repeat(asteriskBytes, indirects))
+		d.w.Write([]byte(ve.Type().String()))
+		d.w.Write(closeParenBytes)
+	}
 
 	// Display pointer information.
 	if !d.cs.DisablePointerAddresses && len(pointerChain) > 0 {
@@ -135,7 +142,7 @@ func (d *dumpState) dumpPtr(v reflect.Value) {
 			if i > 0 {
 				d.w.Write(pointerChainBytes)
 			}
-			printHexPtr(d.w, addr)
+			d.cs.PrintHexPtr(d.w, addr)
 		}
 		d.w.Write(closeParenBytes)
 	}
@@ -144,7 +151,7 @@ func (d *dumpState) dumpPtr(v reflect.Value) {
 	d.w.Write(openParenBytes)
 	switch {
 	case nilFound:
-		d.w.Write(nilAngleBytes)
+		d.w.Write(d.cs.GetNilBytes())
 
 	case cycleFound:
 		d.w.Write(circularBytes)
@@ -282,7 +289,7 @@ func (d *dumpState) dump(v reflect.Value) {
 	case reflect.Map, reflect.String:
 		valueLen = v.Len()
 	}
-	if valueLen != 0 || !d.cs.DisableCapacities && valueCap != 0 {
+	if !d.cs.AsGolangSource && (valueLen != 0 || !d.cs.DisableCapacities && valueCap != 0) {
 		d.w.Write(openParenBytes)
 		if valueLen != 0 {
 			d.w.Write(lenEqualsBytes)
@@ -337,7 +344,7 @@ func (d *dumpState) dump(v reflect.Value) {
 
 	case reflect.Slice:
 		if v.IsNil() {
-			d.w.Write(nilAngleBytes)
+			d.w.Write(d.cs.GetNilBytes())
 			break
 		}
 		fallthrough
@@ -362,7 +369,7 @@ func (d *dumpState) dump(v reflect.Value) {
 		// The only time we should get here is for nil interfaces due to
 		// unpackValue calls.
 		if v.IsNil() {
-			d.w.Write(nilAngleBytes)
+			d.w.Write(d.cs.GetNilBytes())
 		}
 
 	case reflect.Ptr:
@@ -372,7 +379,7 @@ func (d *dumpState) dump(v reflect.Value) {
 	case reflect.Map:
 		// nil maps should be indicated as different than empty maps
 		if v.IsNil() {
-			d.w.Write(nilAngleBytes)
+			d.w.Write(d.cs.GetNilBytes())
 			break
 		}
 
@@ -431,10 +438,10 @@ func (d *dumpState) dump(v reflect.Value) {
 		d.w.Write(closeBraceBytes)
 
 	case reflect.Uintptr:
-		printHexPtr(d.w, uintptr(v.Uint()))
+		d.cs.PrintHexPtr(d.w, uintptr(v.Uint()))
 
 	case reflect.UnsafePointer, reflect.Chan, reflect.Func:
-		printHexPtr(d.w, v.Pointer())
+		d.cs.PrintHexPtr(d.w, v.Pointer())
 
 	// There were not any other types at the time this code was written, but
 	// fall back to letting the default fmt package handle it in case any new
@@ -455,7 +462,7 @@ func fdump(cs *ConfigState, w io.Writer, a ...interface{}) {
 		if arg == nil {
 			w.Write(interfaceBytes)
 			w.Write(spaceBytes)
-			w.Write(nilAngleBytes)
+			w.Write(cs.GetNilBytes())
 			w.Write(newlineBytes)
 			continue
 		}

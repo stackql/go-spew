@@ -182,40 +182,6 @@ func printComplex(w io.Writer, c complex128, floatPrecision int) {
 	w.Write(closeParenBytes)
 }
 
-// printHexPtr outputs a uintptr formatted as hexadecimal with a leading '0x'
-// prefix to Writer w.
-func printHexPtr(w io.Writer, p uintptr) {
-	// Null pointer.
-	num := uint64(p)
-	if num == 0 {
-		w.Write(nilAngleBytes)
-		return
-	}
-
-	// Max uint64 is 16 bytes in hex + 2 bytes for '0x' prefix
-	buf := make([]byte, 18)
-
-	// It's simpler to construct the hex string right to left.
-	base := uint64(16)
-	i := len(buf) - 1
-	for num >= base {
-		buf[i] = hexDigits[num%base]
-		num /= base
-		i--
-	}
-	buf[i] = hexDigits[num]
-
-	// Add '0x' prefix.
-	i--
-	buf[i] = 'x'
-	i--
-	buf[i] = '0'
-
-	// Strip unused leading bytes.
-	buf = buf[i:]
-	w.Write(buf)
-}
-
 // valuesSorter implements sort.Interface to allow a slice of reflect.Value
 // elements to be sorted.
 type valuesSorter struct {
