@@ -52,6 +52,7 @@ type dumpState struct {
 	w                io.Writer
 	depth            int
 	pointers         map[uintptr]int
+	pointerDefs      map[uintptr]reflect.Value
 	ignoreNextType   bool
 	ignoreNextIndent bool
 	cs               *ConfigState
@@ -65,6 +66,10 @@ func (d *dumpState) indent() {
 		return
 	}
 	d.w.Write(bytes.Repeat([]byte(d.cs.Indent), d.depth))
+}
+
+func (d *dumpState) generatePointerVarName(addr uintptr) string {
+	return fmt.Sprintf("PtrVar_%#x", addr)
 }
 
 // unpackValue returns values inside of non-nil interfaces when possible.
@@ -95,8 +100,10 @@ func (d *dumpState) dumpPtr(v reflect.Value) {
 	// references.
 	nilFound := false
 	cycleFound := false
+	ptrOutOfLine := false
 	indirects := 0
 	ve := v
+	var finalAddr *uintptr
 	for ve.Kind() == reflect.Ptr {
 		if ve.IsNil() {
 			nilFound = true
@@ -104,6 +111,7 @@ func (d *dumpState) dumpPtr(v reflect.Value) {
 		}
 		indirects++
 		addr := ve.Pointer()
+		finalAddr = &addr
 		pointerChain = append(pointerChain, addr)
 		if pd, ok := d.pointers[addr]; ok && pd < d.depth {
 			cycleFound = true
@@ -121,10 +129,23 @@ func (d *dumpState) dumpPtr(v reflect.Value) {
 			ve = ve.Elem()
 		}
 	}
+	if finalAddr != nil && !nilFound {
+		_, ok := d.pointerDefs[*finalAddr]
+		if ok {
+			ptrOutOfLine = true
+		} else {
+			d.pointerDefs[*finalAddr] = ve
+			ptrOutOfLine = true
+		}
+	}
 
 	// Display type information.
 	if d.cs.AsGolangSource {
 		if !nilFound {
+			if finalAddr != nil && ptrOutOfLine {
+				d.w.Write([]byte(d.generatePointerVarName(*finalAddr)))
+				return
+			}
 			if isInlineInitializable(ve) {
 				d.w.Write(ampersandBytes)
 				d.w.Write([]byte(strings.TrimLeft(ve.Type().String(), "*")))
@@ -163,6 +184,9 @@ func (d *dumpState) dumpPtr(v reflect.Value) {
 
 	case cycleFound:
 		d.w.Write(circularBytes)
+
+	case ptrOutOfLine && d.cs.AsGolangSource:
+		// do nothing
 
 	default:
 		d.ignoreNextType = true
@@ -544,7 +568,16 @@ func fdump(cs *ConfigState, w io.Writer, a ...interface{}) {
 
 		d := dumpState{w: w, cs: cs}
 		d.pointers = make(map[uintptr]int)
+		d.pointerDefs = make(map[uintptr]reflect.Value)
 		d.dump(reflect.ValueOf(arg))
+		if cs.AsGolangSource {
+			for k, v := range d.pointerDefs {
+				d.w.Write(newlineBytes)
+				d.w.Write([]byte(fmt.Sprintf("var %s %s = &%s", d.generatePointerVarName(k), v.Kind(), v.Kind())))
+				d.dump(v)
+				d.w.Write(newlineBytes)
+			}
+		}
 		d.w.Write(newlineBytes)
 	}
 }
