@@ -126,7 +126,7 @@ func (d *dumpState) dumpPtr(v reflect.Value) {
 	if d.cs.AsGolangSource {
 		d.w.Write(ampersandBytes)
 		// d.w.Write(bytes.Repeat(, indirects))
-		d.w.Write([]byte(strings.TrimLeft("*", ve.Type().String())))
+		d.w.Write([]byte(strings.TrimLeft(ve.Type().String(), "*")))
 		// d.w.Write(closeParenBytes)
 	} else {
 		d.w.Write(openParenBytes)
