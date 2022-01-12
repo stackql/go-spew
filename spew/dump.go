@@ -124,10 +124,12 @@ func (d *dumpState) dumpPtr(v reflect.Value) {
 
 	// Display type information.
 	if d.cs.AsGolangSource {
-		d.w.Write(ampersandBytes)
-		// d.w.Write(bytes.Repeat(, indirects))
-		d.w.Write([]byte(strings.TrimLeft(ve.Type().String(), "*")))
-		// d.w.Write(closeParenBytes)
+		if !nilFound {
+			d.w.Write(ampersandBytes)
+			// d.w.Write(bytes.Repeat(, indirects))
+			d.w.Write([]byte(strings.TrimLeft(ve.Type().String(), "*")))
+			// d.w.Write(closeParenBytes)
+		}
 	} else {
 		d.w.Write(openParenBytes)
 		d.w.Write(bytes.Repeat(asteriskBytes, indirects))
@@ -153,13 +155,7 @@ func (d *dumpState) dumpPtr(v reflect.Value) {
 	}
 	switch {
 	case nilFound:
-		if d.cs.AsGolangSource {
-			d.w.Write(openParenBytes)
-		}
 		d.w.Write(d.cs.GetNilBytes())
-		if d.cs.AsGolangSource {
-			d.w.Write(closeParenBytes)
-		}
 
 	case cycleFound:
 		d.w.Write(circularBytes)
@@ -478,8 +474,11 @@ func (d *dumpState) dump(v reflect.Value) {
 			vt := v.Type()
 			numFields := v.NumField()
 			for i := 0; i < numFields; i++ {
-				d.indent()
 				vtf := vt.Field(i)
+				if strings.ToLower(vtf.Name) == vtf.Name && d.cs.AsGolangSource {
+					continue
+				}
+				d.indent()
 				d.w.Write([]byte(vtf.Name))
 				d.w.Write(colonSpaceBytes)
 				d.ignoreNextIndent = true
