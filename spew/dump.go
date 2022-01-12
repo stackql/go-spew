@@ -444,7 +444,7 @@ func (d *dumpState) dump(v reflect.Value) {
 				d.w.Write(colonSpaceBytes)
 				d.ignoreNextIndent = true
 				d.dump(d.unpackValue(v.MapIndex(key)))
-				if i < (numEntries - 1) {
+				if i < (numEntries-1) || d.cs.AsGolangSource {
 					d.w.Write(commaNewlineBytes)
 				} else {
 					d.w.Write(newlineBytes)
@@ -471,7 +471,7 @@ func (d *dumpState) dump(v reflect.Value) {
 				d.w.Write(colonSpaceBytes)
 				d.ignoreNextIndent = true
 				d.dump(d.unpackValue(v.Field(i)))
-				if i < (numFields - 1) {
+				if i < (numFields-1) || d.cs.AsGolangSource {
 					d.w.Write(commaNewlineBytes)
 				} else {
 					d.w.Write(newlineBytes)
