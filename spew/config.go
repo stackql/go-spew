@@ -41,6 +41,8 @@ type ConfigState struct {
 	// set this to a tab with "\t" or perhaps two spaces with "  ".
 	Indent string
 
+	AsGolangSource bool
+
 	// MaxDepth controls the maximum number of levels to descend into nested
 	// data structures.  The default, 0, means there is no limit.
 	//
@@ -75,6 +77,11 @@ type ConfigState struct {
 	// for arrays, slices, maps and channels. This is useful when diffing
 	// data structures in tests.
 	DisableCapacities bool
+
+	// DisableSizes specifies whether to disable the printing of sizes
+	// for arrays, slices, maps and channels. This is useful when diffing
+	// data structures in tests.
+	DisableSizes bool
 
 	// ContinueOnMethod specifies whether or not recursion should continue once
 	// a custom error or Stringer interface is invoked.  The default, false,
