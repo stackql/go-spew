@@ -132,21 +132,18 @@ func (d *dumpState) dumpPtr(v reflect.Value) {
 	if finalAddr != nil && !nilFound {
 		_, ok := d.pointerDefs[*finalAddr]
 		if ok {
-			ptrOutOfLine = true
 		} else {
 			d.pointerDefs[*finalAddr] = ve
-			ptrOutOfLine = true
 		}
+		ptrOutOfLine = true
 	}
 
 	// Display type information.
 	if d.cs.AsGolangSource {
 		if !nilFound {
-			if finalAddr != nil && ptrOutOfLine {
+			if finalAddr != nil {
 				d.w.Write([]byte(d.generatePointerVarName(*finalAddr)))
-				return
-			}
-			if isInlineInitializable(ve) {
+			} else if isInlineInitializable(ve) {
 				d.w.Write(ampersandBytes)
 				d.w.Write([]byte(strings.TrimLeft(ve.Type().String(), "*")))
 			} else {
@@ -185,9 +182,6 @@ func (d *dumpState) dumpPtr(v reflect.Value) {
 	case cycleFound:
 		d.w.Write(circularBytes)
 
-	case ptrOutOfLine && d.cs.AsGolangSource:
-		// do nothing
-
 	default:
 		d.ignoreNextType = true
 		d.dump(ve)
@@ -196,7 +190,7 @@ func (d *dumpState) dumpPtr(v reflect.Value) {
 		d.w.Write(closeParenBytes)
 		return
 	}
-	if !isInlineInitializable(ve) {
+	if !isInlineInitializable(ve) && !ptrOutOfLine {
 		d.w.Write(closeBraceBytes)
 		d.w.Write([]byte("[0]"))
 	}
@@ -573,7 +567,7 @@ func fdump(cs *ConfigState, w io.Writer, a ...interface{}) {
 		if cs.AsGolangSource {
 			for k, v := range d.pointerDefs {
 				d.w.Write(newlineBytes)
-				d.w.Write([]byte(fmt.Sprintf("var %s %s = &%s", d.generatePointerVarName(k), v.Kind(), v.Kind())))
+				d.w.Write([]byte(fmt.Sprintf("var %s %s = &%s", d.generatePointerVarName(k), v.Type().String(), strings.TrimLeft(v.Type().String(), "*"))))
 				d.dump(v)
 				d.w.Write(newlineBytes)
 			}
