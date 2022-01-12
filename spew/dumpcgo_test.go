@@ -26,7 +26,7 @@ package spew_test
 import (
 	"fmt"
 
-	"github.com/stackql/go-spew/spew/testdata"
+	"go-spew/spew/testdata"
 )
 
 func addCgoDumpTests() {
