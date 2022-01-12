@@ -39,6 +39,7 @@ var (
 	openBraceBytes        = []byte("{")
 	openBraceNewlineBytes = []byte("{\n")
 	closeBraceBytes       = []byte("}")
+	ampersandBytes        = []byte("&")
 	asteriskBytes         = []byte("*")
 	colonBytes            = []byte(":")
 	colonSpaceBytes       = []byte(": ")
@@ -46,7 +47,8 @@ var (
 	closeParenBytes       = []byte(")")
 	spaceBytes            = []byte(" ")
 	pointerChainBytes     = []byte("->")
-	nilAngleBytes         = []byte("<nil>")
+	nilOnlyBytes          = []byte("<nil>")
+	nilOnlyBytes          = []byte("nil")
 	maxNewlineBytes       = []byte("<max depth reached>\n")
 	maxShortBytes         = []byte("<max>")
 	circularBytes         = []byte("<already shown>")
@@ -186,7 +188,7 @@ func printHexPtr(w io.Writer, p uintptr) {
 	// Null pointer.
 	num := uint64(p)
 	if num == 0 {
-		w.Write(nilAngleBytes)
+		w.Write(nilOnlyBytes)
 		return
 	}
 
