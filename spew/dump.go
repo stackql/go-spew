@@ -283,7 +283,20 @@ func isElementary(v reflect.Value) bool {
 		return true
 	}
 	return false
+}
 
+func isNil(v reflect.Value) bool {
+	switch v.Kind() {
+	case reflect.Chan,
+		reflect.Func,
+		reflect.Map,
+		reflect.Ptr,
+		reflect.UnsafePointer,
+		reflect.Interface,
+		reflect.Slice:
+		return v.IsNil()
+	}
+	return false
 }
 
 // dump is the main workhorse for dumping a value.  It uses the passed reflect
@@ -316,7 +329,7 @@ func (d *dumpState) dump(v reflect.Value) {
 		} else {
 			d.indent()
 			// d.w.Write(openParenBytes)
-			if !isElementary(v) {
+			if !isElementary(v) && !isNil(v) {
 				d.w.Write([]byte(v.Type().String()))
 			}
 			// d.w.Write(closeParenBytes)
