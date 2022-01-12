@@ -47,7 +47,7 @@ var (
 	closeParenBytes       = []byte(")")
 	spaceBytes            = []byte(" ")
 	pointerChainBytes     = []byte("->")
-	nilOnlyBytes          = []byte("<nil>")
+	nilAngleBytes         = []byte("<nil>")
 	nilOnlyBytes          = []byte("nil")
 	maxNewlineBytes       = []byte("<max depth reached>\n")
 	maxShortBytes         = []byte("<max>")
