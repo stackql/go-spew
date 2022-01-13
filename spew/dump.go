@@ -586,10 +586,11 @@ func fdump(cs *ConfigState, w io.Writer, a ...interface{}) {
 		d.pointerDefs = make(map[uintptr]reflect.Value)
 		d.dump(reflect.ValueOf(arg))
 		if cs.AsGolangSource {
+			d.write(newlineBytes)
 			for k, v := range d.pointerDefs {
 				d.write(newlineBytes)
-				d.write([]byte(fmt.Sprintf("var %s %s = &%s", d.generatePointerVarName(k), v.Type().String(), strings.TrimLeft(v.Type().String(), "*"))))
-				d.dump(v)
+				d.write([]byte(fmt.Sprintf("var %s %s = &", d.generatePointerVarName(k), v.Type().String())))
+				d.dumpPtr(v)
 				d.write(newlineBytes)
 			}
 		}
