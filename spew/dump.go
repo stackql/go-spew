@@ -615,7 +615,7 @@ func fdump(cs *ConfigState, w io.Writer, a ...interface{}) {
 			d.write(newlineBytes)
 			for k, v := range d.pointerDefs {
 				d.write(newlineBytes)
-				d.write([]byte(fmt.Sprintf("var %s %s = &", d.generatePointerVarName(k), v.Type().String())))
+				d.write([]byte(fmt.Sprintf("var %s %s = ", d.generatePointerVarName(k), v.Type().String())))
 				d.dumpPtr(v)
 				d.write(newlineBytes)
 			}
