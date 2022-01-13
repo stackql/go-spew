@@ -49,23 +49,28 @@ var (
 
 // dumpState contains information about the state of a dump operation.
 type dumpState struct {
-	w                io.Writer
-	depth            int
-	pointers         map[uintptr]int
-	pointerDefs      map[uintptr]reflect.Value
-	ignoreNextType   bool
-	ignoreNextIndent bool
-	cs               *ConfigState
+	w                     io.Writer
+	depth                 int
+	pointers              map[uintptr]int
+	pointerDefs           map[uintptr]reflect.Value
+	pointerDefsNotVisited map[uintptr]struct{}
+	ignoreNextType        bool
+	ignoreNextIndent      bool
+	pointerAccrual        bool
+	cs                    *ConfigState
 }
 
 // indent performs indentation according to the depth level and cs.Indent
 // option.
 func (d *dumpState) indent() {
+	if d.pointerAccrual {
+		return
+	}
 	if d.ignoreNextIndent {
 		d.ignoreNextIndent = false
 		return
 	}
-	d.w.Write(bytes.Repeat([]byte(d.cs.Indent), d.depth))
+	d.write(bytes.Repeat([]byte(d.cs.Indent), d.depth))
 }
 
 func (d *dumpState) generatePointerVarName(addr uintptr) string {
@@ -91,6 +96,8 @@ func (d *dumpState) dumpPtr(v reflect.Value) {
 			delete(d.pointers, k)
 		}
 	}
+
+	var isOriginOfPointerAccrual bool
 
 	// Keep list of all dereferenced pointers to show later.
 	pointerChain := make([]uintptr, 0)
@@ -142,57 +149,64 @@ func (d *dumpState) dumpPtr(v reflect.Value) {
 	if d.cs.AsGolangSource {
 		if !nilFound {
 			if finalAddr != nil {
-				d.w.Write([]byte(d.generatePointerVarName(*finalAddr)))
+				d.write([]byte(d.generatePointerVarName(*finalAddr)))
+				if !d.pointerAccrual {
+					d.pointerAccrual = true
+					isOriginOfPointerAccrual = true
+				}
 			} else if isInlineInitializable(ve) {
-				d.w.Write(ampersandBytes)
-				d.w.Write([]byte(strings.TrimLeft(ve.Type().String(), "*")))
+				d.write(ampersandBytes)
+				d.write([]byte(strings.TrimLeft(ve.Type().String(), "*")))
 			} else {
-				d.w.Write(ampersandBytes)
-				d.w.Write([]byte("[]" + strings.TrimLeft(ve.Type().String(), "*")))
-				d.w.Write(openBraceBytes)
+				d.write(ampersandBytes)
+				d.write([]byte("[]" + strings.TrimLeft(ve.Type().String(), "*")))
+				d.write(openBraceBytes)
 			}
 		}
 	} else {
-		d.w.Write(openParenBytes)
-		d.w.Write(bytes.Repeat(asteriskBytes, indirects))
-		d.w.Write([]byte(ve.Type().String()))
-		d.w.Write(closeParenBytes)
+		d.write(openParenBytes)
+		d.write(bytes.Repeat(asteriskBytes, indirects))
+		d.write([]byte(ve.Type().String()))
+		d.write(closeParenBytes)
 	}
 
 	// Display pointer information.
 	if !d.cs.DisablePointerAddresses && len(pointerChain) > 0 {
-		d.w.Write(openParenBytes)
+		d.write(openParenBytes)
 		for i, addr := range pointerChain {
 			if i > 0 {
-				d.w.Write(pointerChainBytes)
+				d.write(pointerChainBytes)
 			}
 			d.cs.PrintHexPtr(d.w, addr)
 		}
-		d.w.Write(closeParenBytes)
+		d.write(closeParenBytes)
 	}
 
 	// Display dereferenced value.
 	if !d.cs.AsGolangSource {
-		d.w.Write(openParenBytes)
+		d.write(openParenBytes)
 	}
 	switch {
 	case nilFound:
-		d.w.Write(d.cs.GetNilBytes())
+		d.write(d.cs.GetNilBytes())
 
 	case cycleFound:
-		d.w.Write(circularBytes)
+		d.write(circularBytes)
 
 	default:
 		d.ignoreNextType = true
 		d.dump(ve)
+		if isOriginOfPointerAccrual {
+			d.pointerAccrual = false
+		}
 	}
 	if !d.cs.AsGolangSource {
-		d.w.Write(closeParenBytes)
+		d.write(closeParenBytes)
 		return
 	}
 	if !isInlineInitializable(ve) && !ptrOutOfLine {
-		d.w.Write(closeBraceBytes)
-		d.w.Write([]byte("[0]"))
+		d.write(closeBraceBytes)
+		d.write([]byte("[0]"))
 	}
 }
 
@@ -269,7 +283,7 @@ func (d *dumpState) dumpSlice(v reflect.Value) {
 		str := indent + hex.Dump(buf)
 		str = strings.Replace(str, "\n", "\n"+indent, -1)
 		str = strings.TrimRight(str, d.cs.Indent)
-		d.w.Write([]byte(str))
+		d.write([]byte(str))
 		return
 	}
 
@@ -277,9 +291,9 @@ func (d *dumpState) dumpSlice(v reflect.Value) {
 	for i := 0; i < numEntries; i++ {
 		d.dump(d.unpackValue(v.Index(i)))
 		if i < (numEntries-1) || d.cs.AsGolangSource {
-			d.w.Write(commaNewlineBytes)
+			d.write(commaNewlineBytes)
 		} else {
-			d.w.Write(newlineBytes)
+			d.write(newlineBytes)
 		}
 	}
 }
@@ -331,6 +345,13 @@ func isInlineInitializable(v reflect.Value) bool {
 	return true
 }
 
+func (d *dumpState) write(b []byte) {
+	if d.cs.AsGolangSource && d.pointerAccrual {
+		return
+	}
+	d.w.Write(b)
+}
+
 // dump is the main workhorse for dumping a value.  It uses the passed reflect
 // value to figure out what kind of object we are dealing with and formats it
 // appropriately.  It is a recursive function, however circular data structures
@@ -339,7 +360,7 @@ func (d *dumpState) dump(v reflect.Value) {
 	// Handle invalid reflect values immediately.
 	kind := v.Kind()
 	if kind == reflect.Invalid {
-		d.w.Write(invalidAngleBytes)
+		d.write(invalidAngleBytes)
 		return
 	}
 
@@ -354,18 +375,18 @@ func (d *dumpState) dump(v reflect.Value) {
 	if !d.ignoreNextType {
 		if !d.cs.AsGolangSource {
 			d.indent()
-			d.w.Write(openParenBytes)
-			d.w.Write([]byte(v.Type().String()))
-			d.w.Write(closeParenBytes)
-			d.w.Write(spaceBytes)
+			d.write(openParenBytes)
+			d.write([]byte(v.Type().String()))
+			d.write(closeParenBytes)
+			d.write(spaceBytes)
 		} else {
 			d.indent()
-			// d.w.Write(openParenBytes)
+			// d.write(openParenBytes)
 			if !isElementary(v) && !isNil(v) {
-				d.w.Write([]byte(v.Type().String()))
+				d.write([]byte(v.Type().String()))
 			}
-			// d.w.Write(closeParenBytes)
-			d.w.Write(spaceBytes)
+			// d.write(closeParenBytes)
+			d.write(spaceBytes)
 		}
 	}
 	d.ignoreNextType = false
@@ -380,20 +401,20 @@ func (d *dumpState) dump(v reflect.Value) {
 		valueLen = v.Len()
 	}
 	if !d.cs.AsGolangSource && (valueLen != 0 || !d.cs.DisableCapacities && valueCap != 0) {
-		d.w.Write(openParenBytes)
+		d.write(openParenBytes)
 		if valueLen != 0 {
-			d.w.Write(lenEqualsBytes)
+			d.write(lenEqualsBytes)
 			printInt(d.w, int64(valueLen), 10)
 		}
 		if !d.cs.DisableCapacities && valueCap != 0 {
 			if valueLen != 0 {
-				d.w.Write(spaceBytes)
+				d.write(spaceBytes)
 			}
-			d.w.Write(capEqualsBytes)
+			d.write(capEqualsBytes)
 			printInt(d.w, int64(valueCap), 10)
 		}
-		d.w.Write(closeParenBytes)
-		d.w.Write(spaceBytes)
+		d.write(closeParenBytes)
+		d.write(spaceBytes)
 	}
 
 	// Call Stringer/error interfaces if they exist and the handle methods flag
@@ -434,32 +455,32 @@ func (d *dumpState) dump(v reflect.Value) {
 
 	case reflect.Slice:
 		if v.IsNil() {
-			d.w.Write(d.cs.GetNilBytes())
+			d.write(d.cs.GetNilBytes())
 			break
 		}
 		fallthrough
 
 	case reflect.Array:
-		d.w.Write(openBraceNewlineBytes)
+		d.write(openBraceNewlineBytes)
 		d.depth++
 		if (d.cs.MaxDepth != 0) && (d.depth > d.cs.MaxDepth) {
 			d.indent()
-			d.w.Write(maxNewlineBytes)
+			d.write(maxNewlineBytes)
 		} else {
 			d.dumpSlice(v)
 		}
 		d.depth--
 		d.indent()
-		d.w.Write(closeBraceBytes)
+		d.write(closeBraceBytes)
 
 	case reflect.String:
-		d.w.Write([]byte(strconv.Quote(v.String())))
+		d.write([]byte(strconv.Quote(v.String())))
 
 	case reflect.Interface:
 		// The only time we should get here is for nil interfaces due to
 		// unpackValue calls.
 		if v.IsNil() {
-			d.w.Write(d.cs.GetNilBytes())
+			d.write(d.cs.GetNilBytes())
 		}
 
 	case reflect.Ptr:
@@ -469,15 +490,15 @@ func (d *dumpState) dump(v reflect.Value) {
 	case reflect.Map:
 		// nil maps should be indicated as different than empty maps
 		if v.IsNil() {
-			d.w.Write(d.cs.GetNilBytes())
+			d.write(d.cs.GetNilBytes())
 			break
 		}
 
-		d.w.Write(openBraceNewlineBytes)
+		d.write(openBraceNewlineBytes)
 		d.depth++
 		if (d.cs.MaxDepth != 0) && (d.depth > d.cs.MaxDepth) {
 			d.indent()
-			d.w.Write(maxNewlineBytes)
+			d.write(maxNewlineBytes)
 		} else {
 			numEntries := v.Len()
 			keys := v.MapKeys()
@@ -486,26 +507,26 @@ func (d *dumpState) dump(v reflect.Value) {
 			}
 			for i, key := range keys {
 				d.dump(d.unpackValue(key))
-				d.w.Write(colonSpaceBytes)
+				d.write(colonSpaceBytes)
 				d.ignoreNextIndent = true
 				d.dump(d.unpackValue(v.MapIndex(key)))
 				if i < (numEntries-1) || d.cs.AsGolangSource {
-					d.w.Write(commaNewlineBytes)
+					d.write(commaNewlineBytes)
 				} else {
-					d.w.Write(newlineBytes)
+					d.write(newlineBytes)
 				}
 			}
 		}
 		d.depth--
 		d.indent()
-		d.w.Write(closeBraceBytes)
+		d.write(closeBraceBytes)
 
 	case reflect.Struct:
-		d.w.Write(openBraceNewlineBytes)
+		d.write(openBraceNewlineBytes)
 		d.depth++
 		if (d.cs.MaxDepth != 0) && (d.depth > d.cs.MaxDepth) {
 			d.indent()
-			d.w.Write(maxNewlineBytes)
+			d.write(maxNewlineBytes)
 		} else {
 			vt := v.Type()
 			numFields := v.NumField()
@@ -515,20 +536,20 @@ func (d *dumpState) dump(v reflect.Value) {
 					continue
 				}
 				d.indent()
-				d.w.Write([]byte(vtf.Name))
-				d.w.Write(colonSpaceBytes)
+				d.write([]byte(vtf.Name))
+				d.write(colonSpaceBytes)
 				d.ignoreNextIndent = true
 				d.dump(d.unpackValue(v.Field(i)))
 				if i < (numFields-1) || d.cs.AsGolangSource {
-					d.w.Write(commaNewlineBytes)
+					d.write(commaNewlineBytes)
 				} else {
-					d.w.Write(newlineBytes)
+					d.write(newlineBytes)
 				}
 			}
 		}
 		d.depth--
 		d.indent()
-		d.w.Write(closeBraceBytes)
+		d.write(closeBraceBytes)
 
 	case reflect.Uintptr:
 		d.cs.PrintHexPtr(d.w, uintptr(v.Uint()))
@@ -566,13 +587,13 @@ func fdump(cs *ConfigState, w io.Writer, a ...interface{}) {
 		d.dump(reflect.ValueOf(arg))
 		if cs.AsGolangSource {
 			for k, v := range d.pointerDefs {
-				d.w.Write(newlineBytes)
-				d.w.Write([]byte(fmt.Sprintf("var %s %s = &%s", d.generatePointerVarName(k), v.Type().String(), strings.TrimLeft(v.Type().String(), "*"))))
+				d.write(newlineBytes)
+				d.write([]byte(fmt.Sprintf("var %s %s = &%s", d.generatePointerVarName(k), v.Type().String(), strings.TrimLeft(v.Type().String(), "*"))))
 				d.dump(v)
-				d.w.Write(newlineBytes)
+				d.write(newlineBytes)
 			}
 		}
-		d.w.Write(newlineBytes)
+		d.write(newlineBytes)
 	}
 }
 
