@@ -49,15 +49,15 @@ var (
 
 // dumpState contains information about the state of a dump operation.
 type dumpState struct {
-	w                     io.Writer
-	depth                 int
-	pointers              map[uintptr]int
-	pointerDefs           map[uintptr]reflect.Value
-	pointerDefsNotVisited map[uintptr]struct{}
-	ignoreNextType        bool
-	ignoreNextIndent      bool
-	pointerAccrual        bool
-	cs                    *ConfigState
+	w                io.Writer
+	depth            int
+	pointers         map[uintptr]int
+	pointerDefs      map[uintptr]reflect.Value
+	ignoreNextType   bool
+	ignoreNextIndent bool
+	pointerAccrual   bool
+	referenceFilling bool
+	cs               *ConfigState
 }
 
 // indent performs indentation according to the depth level and cs.Indent
@@ -150,6 +150,9 @@ func (d *dumpState) dumpPtr(v reflect.Value) {
 		if !nilFound {
 			if finalAddr != nil {
 				d.write([]byte(d.generatePointerVarName(*finalAddr)))
+				if d.referenceFilling {
+					return
+				}
 				if !d.pointerAccrual {
 					d.pointerAccrual = true
 					isOriginOfPointerAccrual = true
@@ -585,6 +588,7 @@ func fdump(cs *ConfigState, w io.Writer, a ...interface{}) {
 		d.pointers = make(map[uintptr]int)
 		d.pointerDefs = make(map[uintptr]reflect.Value)
 		d.dump(reflect.ValueOf(arg))
+		d.referenceFilling = true
 		if cs.AsGolangSource {
 			d.write(newlineBytes)
 			for k, v := range d.pointerDefs {
@@ -613,27 +617,27 @@ func Sdump(a ...interface{}) string {
 }
 
 /*
-Dump displays the passed parameters to standard out with newlines, customizable
-indentation, and additional debug information such as complete types and all
-pointer addresses used to indirect to the final value.  It provides the
-following features over the built-in printing facilities provided by the fmt
-package:
+ Dump displays the passed parameters to standard out with newlines, customizable
+ indentation, and additional debug information such as complete types and all
+ pointer addresses used to indirect to the final value.  It provides the
+ following features over the built-in printing facilities provided by the fmt
+ package:
 
-	* Pointers are dereferenced and followed
-	* Circular data structures are detected and handled properly
-	* Custom Stringer/error interfaces are optionally invoked, including
-	  on unexported types
-	* Custom types which only implement the Stringer/error interfaces via
-	  a pointer receiver are optionally invoked when passing non-pointer
-	  variables
-	* Byte arrays and slices are dumped like the hexdump -C command which
-	  includes offsets, byte values in hex, and ASCII output
+	 * Pointers are dereferenced and followed
+	 * Circular data structures are detected and handled properly
+	 * Custom Stringer/error interfaces are optionally invoked, including
+		 on unexported types
+	 * Custom types which only implement the Stringer/error interfaces via
+		 a pointer receiver are optionally invoked when passing non-pointer
+		 variables
+	 * Byte arrays and slices are dumped like the hexdump -C command which
+		 includes offsets, byte values in hex, and ASCII output
 
-The configuration options are controlled by an exported package global,
-spew.Config.  See ConfigState for options documentation.
+ The configuration options are controlled by an exported package global,
+ spew.Config.  See ConfigState for options documentation.
 
-See Fdump if you would prefer dumping to an arbitrary io.Writer or Sdump to
-get the formatted result as a string.
+ See Fdump if you would prefer dumping to an arbitrary io.Writer or Sdump to
+ get the formatted result as a string.
 */
 func Dump(a ...interface{}) {
 	fdump(&Config, os.Stdout, a...)
