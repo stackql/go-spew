@@ -436,25 +436,39 @@ func (d *dumpState) dump(v reflect.Value) {
 		// been handled above.
 
 	case reflect.Bool:
-		printBool(d.w, v.Bool())
+		var b bytes.Buffer
+		printBool(&b, v.Bool())
+		d.write(b.Bytes())
 
 	case reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64, reflect.Int:
-		printInt(d.w, v.Int(), 10)
+		var b bytes.Buffer
+		printInt(&b, v.Int(), 10)
+		d.write(b.Bytes())
 
 	case reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64, reflect.Uint:
-		printUint(d.w, v.Uint(), 10)
+		var b bytes.Buffer
+		printUint(&b, v.Uint(), 10)
+		d.write(b.Bytes())
 
 	case reflect.Float32:
-		printFloat(d.w, v.Float(), 32)
+		var b bytes.Buffer
+		printFloat(&b, v.Float(), 32)
+		d.write(b.Bytes())
 
 	case reflect.Float64:
-		printFloat(d.w, v.Float(), 64)
+		var b bytes.Buffer
+		printFloat(&b, v.Float(), 64)
+		d.write(b.Bytes())
 
 	case reflect.Complex64:
-		printComplex(d.w, v.Complex(), 32)
+		var b bytes.Buffer
+		printComplex(&b, v.Complex(), 32)
+		d.write(b.Bytes())
 
 	case reflect.Complex128:
-		printComplex(d.w, v.Complex(), 64)
+		var b bytes.Buffer
+		printComplex(&b, v.Complex(), 64)
+		d.write(b.Bytes())
 
 	case reflect.Slice:
 		if v.IsNil() {
@@ -555,19 +569,27 @@ func (d *dumpState) dump(v reflect.Value) {
 		d.write(closeBraceBytes)
 
 	case reflect.Uintptr:
-		d.cs.PrintHexPtr(d.w, uintptr(v.Uint()))
+		var b bytes.Buffer
+		d.cs.PrintHexPtr(&b, uintptr(v.Uint()))
+		d.write(b.Bytes())
 
 	case reflect.UnsafePointer, reflect.Chan, reflect.Func:
-		d.cs.PrintHexPtr(d.w, v.Pointer())
+		var b bytes.Buffer
+		d.cs.PrintHexPtr(&b, v.Pointer())
+		d.write(b.Bytes())
 
 	// There were not any other types at the time this code was written, but
 	// fall back to letting the default fmt package handle it in case any new
 	// types are added.
 	default:
 		if v.CanInterface() {
-			fmt.Fprintf(d.w, "%v", v.Interface())
+			var b bytes.Buffer
+			fmt.Fprintf(&b, "%v", v.Interface())
+			d.write(b.Bytes())
 		} else {
-			fmt.Fprintf(d.w, "%v", v.String())
+			var b bytes.Buffer
+			fmt.Fprintf(&b, "%v", v.String())
+			d.write(b.Bytes())
 		}
 	}
 }
